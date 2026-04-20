@@ -6,7 +6,7 @@ import secrets
 
 class License(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    company_name = models.CharField(max_length=255)
+    company_name = models.CharField(max_length=255) 
     company_id = models.CharField(max_length=100, unique=True, db_index=True)
     is_active = models.BooleanField(default=True)
     start_date = models.DateField(default=timezone.now)
