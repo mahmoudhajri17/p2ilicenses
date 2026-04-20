@@ -1,7 +1,16 @@
-db.sqlite3
+# Virtual environment
+Lib/
+Scripts/
+Include/
+pyvenv.cfg
+venv/
+.venv/
+
+# Python cache
 __pycache__/
 *.pyc
-.venv/
-venv/
-.env
+
+# Database & secrets
+db.sqlite3
 *.pem
+.env
