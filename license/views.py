@@ -42,4 +42,4 @@ def check_license(request, company_id):
     }
 
     token = jwt.encode(payload, settings.LICENSE_JWT_PRIVATE_KEY, algorithm="RS256")
-    return Response({"token": token})
+    return Response({"token": token})  
