@@ -14,7 +14,6 @@ from .models import License
 def check_license(request):
     # ✅ ONLY SOURCE OF TRUTH
     tenant = request.headers.get("X-Tenant-ID")
-
     if not tenant:
         return Response({"detail": "Missing tenant."}, status=400)
 
