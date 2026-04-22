@@ -144,6 +144,15 @@ LICENSE_JWT_TTL_HOURS   = int(os.environ.get("LICENSE_JWT_TTL_HOURS", 24))
 
 CORS_ALLOW_ALL_ORIGINS = True  
 
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "x-tenant-id",        # ← critical
+    "x-csrftoken",
+]
+
+
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
