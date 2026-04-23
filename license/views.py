@@ -12,48 +12,36 @@ from .models import License
 
 @api_view(["GET"])
 def check_license(request):
-    # ✅ ONLY SOURCE OF TRUTH
     tenant = request.headers.get("X-Tenant-ID")
     if not tenant:
         return Response({"detail": "Missing tenant."}, status=400)
 
     try:
-        license = License.objects.get(domain=tenant)
+        license_obj = License.objects.get(tenant=tenant)
     except License.DoesNotExist:
         return Response({"detail": "License not found for tenant."}, status=403)
 
-    # ✅ validate license
-    if not license.is_valid:
+    if not license_obj.is_valid:
         return Response({"detail": "License expired or inactive."}, status=403)
 
-    # ⏱ JWT expiry logic
     now = datetime.now(dt_timezone.utc)
 
-    end_datetime = datetime.combine(
-        license.end_date,
-        datetime.min.time()
+    # ✅ End of the last valid day, not midnight start
+    end_datetime = (
+        datetime.combine(license_obj.end_date, datetime.min.time()) + timedelta(days=1)
     ).replace(tzinfo=dt_timezone.utc)
 
-    jwt_expiry = min(
-        now + timedelta(hours=settings.LICENSE_JWT_TTL_HOURS),
-        end_datetime
-    )
+    jwt_expiry = min(now + timedelta(hours=settings.LICENSE_JWT_TTL_HOURS), end_datetime)
 
-    # 🔐 token payload
     payload = {
         "tenant": tenant,
-        "is_active": license.is_active,
-        "is_valid": license.is_valid,
-        "end_date": license.end_date.isoformat(),
-        "days_remaining": license.days_remaining,
+        "is_valid": license_obj.is_valid,           # ✅ consumed by frontend if/else
+        "is_active": license_obj.is_active,          # ✅ useful for manual kill-switch
+        "end_date": license_obj.end_date.isoformat(),
+        "days_remaining": license_obj.days_remaining, # ✅ consumed by frontend warning
         "iat": now,
         "exp": jwt_expiry,
     }
 
-    token = jwt.encode(
-        payload,
-        settings.LICENSE_JWT_PRIVATE_KEY,
-        algorithm="RS256"
-    )
-
+    token = jwt.encode(payload, settings.LICENSE_JWT_PRIVATE_KEY, algorithm="RS256")
     return Response({"token": token})

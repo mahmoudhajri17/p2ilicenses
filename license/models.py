@@ -10,7 +10,7 @@ class License(models.Model):
     company_name = models.CharField(max_length=255)
 
     # 👇 this is your "automatic mapping key"
-    domain = models.CharField(max_length=255, unique=True, db_index=True)
+    tenant = models.CharField(max_length=255, unique=True, db_index=True)
 
     is_active = models.BooleanField(default=True)
     start_date = models.DateField(default=timezone.now)
