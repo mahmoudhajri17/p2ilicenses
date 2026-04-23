@@ -28,4 +28,4 @@ class License(models.Model):
         return max((self.end_date - timezone.now().date()).days, 0)
 
     def __str__(self):
-        return f"{self.company_name} ({self.domain})"
+        return f"{self.company_name} ({self.tenant})"
