@@ -1,0 +1,413 @@
+<div class="max-w-7xl mx-auto pb-10">
+
+  <!-- ─── HEADER ─── -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white" style="font-family:'Syne',sans-serif">Eisenhower Matrix</h1>
+      <p class="text-sm text-gray-400 font-light mt-0.5">
+        {{ totalInbox }} in inbox · {{ totalMatrix }} classified · {{ totalDone }} done
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <!-- View toggle -->
+      <div class="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-0.5">
+        <button *ngFor="let v of [{key:'matrix', icon:'⊞', label:'Matrix'},{key:'list', icon:'☰', label:'List'}]"
+          (click)="viewMode = $any(v.key)"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+          [class.bg-white]="viewMode === v.key"
+          [class.dark:bg-gray-700]="viewMode === v.key"
+          [class.text-indigo-600]="viewMode === v.key"
+          [class.dark:text-indigo-400]="viewMode === v.key"
+          [class.shadow-sm]="viewMode === v.key"
+          [class.text-gray-400]="viewMode !== v.key">
+          {{ v.icon }} {{ v.label }}
+        </button>
+      </div>
+      <!-- Add task -->
+      <button (click)="openAdd()"
+        class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-all hover:-translate-y-0.5">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add task
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── SKELETON ─── -->
+  <div *ngIf="loading" class="flex gap-5">
+    <div class="w-64 shrink-0 skeleton h-96 rounded-2xl"></div>
+    <div class="flex-1 grid grid-cols-2 gap-4">
+      <div *ngFor="let s of skeletons" class="skeleton h-44 rounded-2xl"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       MATRIX + INBOX LAYOUT
+  ════════════════════════════════════════════════════ -->
+  <div *ngIf="!loading" class="flex gap-5 items-start">
+
+    <!-- ─── INBOX SIDEBAR ─── -->
+    <aside class="w-64 shrink-0 flex flex-col gap-3">
+
+      <!-- Inbox header -->
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden"
+        (dragenter)="onDragEnter('inbox', $event)"
+  (dragover)="onDragOver('inbox', $event)"
+  (dragleave)="onDragLeave('inbox', $event)"
+  (drop)="onDrop('inbox', $event)"
+  [class.ring-2]="dragOverQuadrant === 'inbox'"
+  [class.ring-indigo-400]="dragOverQuadrant === 'inbox'">
+
+        <!-- Header -->
+        <button (click)="inboxOpen = !inboxOpen"
+          class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📥</span>
+            <span class="font-bold text-sm text-gray-800 dark:text-gray-200" style="font-family:'Syne',sans-serif">Inbox</span>
+            <span class="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
+              {{ totalInbox }}
+            </span>
+          </div>
+          <svg class="transition-transform duration-200 text-gray-400" [class.rotate-180]="inboxOpen"
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <!-- Inbox tasks -->
+        <div *ngIf="inboxOpen" class="flex flex-col divide-y divide-gray-50 dark:divide-gray-800 max-h-[60vh] overflow-y-auto">
+
+          <div *ngFor="let task of inboxTasks"
+            class="inbox-task group"
+            [class.opacity-50]="dragTask?.id === task.id"
+            draggable="true"
+            (dragstart)="onDragStart(task)"
+            (dragend)="onDragEnd()">
+
+            <!-- Drag handle -->
+            <svg class="shrink-0 text-gray-300 dark:text-gray-600 cursor-grab" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+              <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+              <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+            </svg>
+
+            <!-- Task title -->
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium text-gray-800 dark:text-gray-200 leading-snug truncate">{{ task.title }}</p>
+              <p *ngIf="task.due_date" class="text-[10px] mt-0.5"
+                [class.text-red-500]="isOverdue(task)"
+                [class.text-gray-400]="!isOverdue(task)">
+                {{ formatDate(task.due_date) }}
+              </p>
+            </div>
+
+            <!-- Actions: edit + delete -->
+            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button (click)="openEdit(task, $event)" class="inbox-action-btn">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button (click)="confirmDelete(task.id!, $event)" class="inbox-action-btn hover:text-red-500">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Empty inbox -->
+          <div *ngIf="inboxTasks.length === 0" class="px-4 py-6 text-center">
+            <div class="text-2xl mb-2">✅</div>
+            <p class="text-xs text-gray-400 font-light">Inbox is empty!</p>
+            <p class="text-[10px] text-gray-400 font-light mt-0.5">All tasks are classified.</p>
+          </div>
+        </div>
+
+        <!-- Quick-classify hint when dragging -->
+        <div *ngIf="dragTask && dragTask.priority !== null && dragOverQuadrant === 'inbox'"
+          class="px-4 py-3 bg-indigo-50 dark:bg-indigo-950 text-center">
+          <p class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">Drop to move back to inbox</p>
+        </div>
+      </div>
+
+      <!-- Add to inbox shortcut -->
+      <button (click)="openAdd()"
+        class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-gray-400 text-xs font-semibold py-3 rounded-xl transition-all">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add to inbox
+      </button>
+
+      <!-- Legend -->
+      <div class="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">How it works</p>
+        <div class="flex flex-col gap-2 text-[11px] text-gray-500 dark:text-gray-400 font-light leading-relaxed">
+          <div class="flex items-start gap-2"><span>1.</span><span>Add tasks to the <strong class="font-semibold">inbox</strong> — no pressure to prioritise yet.</span></div>
+          <div class="flex items-start gap-2"><span>2.</span><span><strong class="font-semibold">Drag</strong> tasks from inbox into a quadrant when you're ready.</span></div>
+          <div class="flex items-start gap-2"><span>3.</span><span>Or click the <strong class="font-semibold">quadrant buttons</strong> that appear on hover.</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── MATRIX GRID ─── (Matrix view) -->
+    <div *ngIf="viewMode === 'matrix'" class="flex-1 min-w-0">
+
+      <!-- Axis labels -->
+      <div class="flex items-center justify-between mb-2 px-1">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">← Not urgent · Urgent →</p>
+        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Important ↕ Not important</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div *ngFor="let q of QUADRANTS"
+          class="quadrant group/quad"
+          [class]="q.bg"
+          [class.border-2]="true"
+          [class]="dragOverQuadrant === q.key ? 'ring-2 ring-indigo-400' : q.border"
+          (dragenter)="onDragEnter(q.key, $event)"
+  (dragover)="onDragOver(q.key, $event)"
+  (dragleave)="onDragLeave(q.key, $event)"
+  (drop)="onDrop(q.key, $event)"
+  [class.ring-2]="dragOverQuadrant === q.key"
+  [class.ring-indigo-400]="dragOverQuadrant === q.key">
+
+          <!-- Quadrant header -->
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-2.5 h-2.5 rounded-full shrink-0" [class]="q.dot"></div>
+              <div>
+                <p class="text-sm font-bold text-gray-900 dark:text-white leading-none" style="font-family:'Syne',sans-serif">{{ q.label }}</p>
+                <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{{ q.sub }}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" [class]="q.badge">{{ tasksFor(q.key).length }}</span>
+              <button (click)="openAdd(q.key)"
+                class="w-6 h-6 rounded-lg opacity-0 group/quad-hover:opacity-100 group-hover/quad:opacity-100 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-white/60 transition-all">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tasks -->
+          <div class="flex flex-col gap-2 min-h-[80px]">
+            <div *ngFor="let task of tasksFor(q.key)"
+              class="matrix-card group/card"
+              [class.opacity-40]="dragTask?.id === task.id"
+              draggable="true"
+              (dragstart)="onDragStart(task)"
+              (dragend)="onDragEnd()">
+
+              <div class="flex items-start gap-2">
+                <!-- Complete checkbox -->
+                <button (click)="toggleComplete(task, $event)"
+                  class="mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+                  [class.border-green-500]="task.completed"
+                  [class.bg-green-500]="task.completed"
+                  [class]="!task.completed ? q.dot.replace('bg-','border-') : ''">
+                  <svg *ngIf="task.completed" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                </button>
+
+                <!-- Title -->
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-medium text-gray-800 dark:text-gray-200 leading-snug"
+                    [class.line-through]="task.completed"
+                    [class.text-gray-400]="task.completed">
+                    {{ task.title }}
+                  </p>
+                  <p *ngIf="task.due_date" class="text-[10px] mt-0.5"
+                    [class.text-red-500]="isOverdue(task)"
+                    [class.text-gray-400]="!isOverdue(task)">
+                    {{ formatDate(task.due_date) }}
+                  </p>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-1 opacity-0 group/card-hover:opacity-100 group-hover/card:opacity-100 transition-opacity shrink-0">
+                  <button (click)="openEdit(task, $event)" class="matrix-action-btn">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button (click)="unclassify(task, $event)" class="matrix-action-btn" title="Move to inbox">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Drop indicator when dragging over -->
+            <div *ngIf="dragTask && dragOverQuadrant === q.key"
+              class="border-2 border-dashed rounded-xl py-2 text-center text-xs font-semibold text-indigo-500"
+              [class.border-indigo-400]="true">
+              Drop here → {{ q.label }}
+            </div>
+
+            <!-- Empty quadrant -->
+            <div *ngIf="tasksFor(q.key).length === 0 && dragOverQuadrant !== q.key"
+              class="flex flex-col items-center justify-center py-4 text-center opacity-50">
+              <p class="text-[11px] text-gray-400 font-light">Drag tasks here or</p>
+              <button (click)="openAdd(q.key)" class="text-[11px] font-semibold text-indigo-500 hover:underline mt-0.5">add one</button>
+            </div>
+          </div>
+
+          <!-- Completed tasks (collapsed section) -->
+          <div *ngIf="completedFor(q.key).length > 0" class="mt-3 pt-3 border-t border-current/10">
+            <p class="text-[10px] text-gray-400 font-light mb-1.5">{{ completedFor(q.key).length }} completed</p>
+            <div *ngFor="let task of completedFor(q.key)"
+              class="flex items-center gap-2 py-1 opacity-50">
+              <button (click)="toggleComplete(task, $event)"
+                class="w-4 h-4 rounded border-2 border-green-500 bg-green-500 flex items-center justify-center shrink-0">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+              </button>
+              <p class="text-xs text-gray-500 line-through truncate flex-1">{{ task.title }}</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─── LIST VIEW ─── -->
+    <div *ngIf="viewMode === 'list'" class="flex-1 min-w-0">
+      <div class="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden">
+
+        <!-- Table header -->
+        <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 dark:bg-gray-800 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+          <div class="col-span-5">Task</div>
+          <div class="col-span-3">Quadrant</div>
+          <div class="col-span-2">Due</div>
+          <div class="col-span-2">Actions</div>
+        </div>
+
+        <div *ngIf="allTasksForList.length === 0" class="flex flex-col items-center justify-center py-16">
+          <div class="text-4xl mb-3">📋</div>
+          <p class="text-sm text-gray-400 font-light">No tasks yet. Add your first task!</p>
+        </div>
+
+        <div class="divide-y divide-gray-50 dark:divide-gray-800">
+          <div *ngFor="let task of allTasksForList"
+            class="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors group">
+
+            <!-- Title + complete -->
+            <div class="col-span-5 flex items-center gap-3 min-w-0">
+              <button *ngIf="task.priority" (click)="toggleComplete(task)"
+                class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+                [class.border-green-500]="task.completed"
+                [class.bg-green-500]="task.completed"
+                [class.border-gray-300]="!task.completed"
+                [class.dark:border-gray-600]="!task.completed">
+                <svg *ngIf="task.completed" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+              </button>
+              <div class="w-5 h-5 shrink-0 flex items-center justify-center" *ngIf="!task.priority">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+              </div>
+              <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+                [class.line-through]="task.completed"
+                [class.text-gray-400]="task.completed">
+                {{ task.title }}
+              </p>
+            </div>
+
+            <!-- Quadrant selector -->
+            <div class="col-span-3">
+              <select
+                [value]="task.priority ?? ''"
+                (change)="task.priority ? classify(task, $any($event.target).value) : ($any($event.target).value ? classify(task, $any($event.target).value) : null)"
+                class="text-xs border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl px-2.5 py-1.5 outline-none focus:border-indigo-400 cursor-pointer transition-colors w-full">
+                <option value="">📥 Inbox</option>
+                <option *ngFor="let q of QUADRANTS" [value]="q.key">{{ q.label }}</option>
+              </select>
+            </div>
+
+            <!-- Due date -->
+            <div class="col-span-2">
+              <span *ngIf="task.due_date" class="text-xs font-medium"
+                [class.text-red-500]="isOverdue(task)"
+                [class.text-gray-400]="!isOverdue(task)">
+                {{ formatDate(task.due_date) }}
+              </span>
+              <span *ngIf="!task.due_date" class="text-xs text-gray-300 dark:text-gray-600">—</span>
+            </div>
+
+            <!-- Actions -->
+            <div class="col-span-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button (click)="openEdit(task)" class="list-action-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button (click)="confirmDelete(task.id!)" class="list-action-btn hover:text-red-500 hover:border-red-300">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ════════════════════════════════════════
+       ADD / EDIT MODAL
+  ════════════════════════════════════════ -->
+  <div *ngIf="modalOpen" class="modal-backdrop" (click)="closeModal()"></div>
+  <div *ngIf="modalOpen" class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">{{ editingTask ? 'Edit task' : 'New task' }}</h3>
+      <button (click)="closeModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body space-y-4">
+
+      <div class="field-group">
+        <label class="field-label">Title *</label>
+        <input [(ngModel)]="form.title" class="field-input" placeholder="What needs to be done?" (keyup.enter)="save()"/>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Description</label>
+        <textarea [(ngModel)]="form.description" rows="2" class="field-input resize-none" placeholder="Optional details…"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="field-group">
+          <label class="field-label">Quadrant</label>
+          <select [(ngModel)]="form.priority" class="field-input">
+            <option [ngValue]="null">📥 Inbox (unclassified)</option>
+            <option *ngFor="let q of QUADRANTS" [value]="q.key">{{ q.label }}</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Due date</label>
+          <input [(ngModel)]="form.due_date" type="date" class="field-input"/>
+        </div>
+      </div>
+
+      <!-- Quadrant hint -->
+      <div *ngIf="form.priority" class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light"
+        [class]="quadrantFor(form.priority).bg" [class]="quadrantFor(form.priority).border">
+        <div class="w-2 h-2 rounded-full shrink-0" [class]="quadrantFor(form.priority).dot"></div>
+        <span class="text-gray-600 dark:text-gray-400">{{ quadrantFor(form.priority).sub }}</span>
+      </div>
+      <div *ngIf="!form.priority" class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-light bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+        📥 Task will land in your inbox — you can classify it later.
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button *ngIf="editingTask" (click)="confirmDelete(editingTask.id!)" class="mr-auto text-xs font-semibold text-red-500 hover:text-red-700 transition-colors">Delete</button>
+      <button (click)="closeModal()" class="btn-cancel">Cancel</button>
+      <button (click)="save()" [disabled]="saving || !form.title?.trim()" class="btn-save">
+        <svg *ngIf="saving" class="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+        {{ saving ? 'Saving…' : editingTask ? 'Save changes' : 'Add task' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Delete confirm -->
+  <div *ngIf="deleteId" class="modal-backdrop" (click)="deleteId = null"></div>
+  <div *ngIf="deleteId" class="modal" style="max-width:340px">
+    <div class="modal-body text-center py-8">
+      <div class="text-4xl mb-4">🗑️</div>
+      <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-2" style="font-family:'Syne',sans-serif">Delete task?</h3>
+      <p class="text-xs text-gray-400 font-light mb-6">This cannot be undone.</p>
+      <div class="flex gap-3 justify-center">
+        <button (click)="deleteId = null" class="btn-cancel">Cancel</button>
+        <button (click)="doDelete()" class="bg-red-500 hover:bg-red-600 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-all">Delete</button>
+      </div>
+    </div>
+  </div>
+
+</div>
